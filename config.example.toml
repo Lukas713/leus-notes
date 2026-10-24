@@ -1,0 +1,26 @@
+[recording]
+me_label = "Me"
+outputs = "all"
+min_duration_seconds = 10
+auto_stop_silence_minutes = 0
+silence_threshold_db = -35
+
+[audio]
+keep_days = 0
+
+[transcription]
+model = "large-v3"
+device = "auto"
+language = "auto"
+languages = ["en", "hr"]
+
+[speakers]
+model = "pyannote/speaker-diarization-community-1"
+
+[notes]
+claude_model = "opus"
+language = "English"
+timeout_seconds = 600
+
+[paths]
+meetings_dir = "meetings"
