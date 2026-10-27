@@ -5,7 +5,8 @@ locally (faster-whisper on the RTX 4090), separate speakers (pyannote), and
 have Claude write English meeting notes through `claude -p` on the user's
 **Claude subscription** — never the API.
 
-User-facing docs: `README.md`. Ticket: `docs/tickets/meeting-notes-tool.md`.
+User-facing docs: `README.md`. Tickets: `docs/tickets/meeting-notes-tool.md`,
+`docs/tickets/share-notes-google-docs.md`.
 
 ## Hard rules
 
@@ -16,8 +17,14 @@ User-facing docs: `README.md`. Ticket: `docs/tickets/meeting-notes-tool.md`.
   Never use `--bare` (it ignores OAuth and requires an API key).
 - **Everything stays in this folder.** The launcher points `HF_HOME`,
   `TORCH_HOME`, `MPLCONFIGDIR`, `CUDA_CACHE_PATH` into the project and
-  `install.py` uses `pip --no-cache-dir`. The only write outside is the
-  `~/.local/bin/leus-notes` symlink.
+  `install.py` uses `pip --no-cache-dir`. The Google OAuth client and token
+  live in `google/` (0700, token 0600, git-ignored). The only write outside is
+  the `~/.local/bin/leus-notes` symlink.
+- **Notes leave the machine only on request.** Google Drive gets a meeting's
+  notes (never transcript or audio) only after `leus-notes share` for that
+  meeting. The automatic refresh after `names` / `process --notes` only updates
+  an existing, live Doc — it never creates one and never opens a login. Scope is
+  `drive.file`: the tool sees only the folder and Docs it created.
 - **Audio is kept whenever something failed** (`meta.keep_audio_reason`), so
   the meeting can be reprocessed. It is deleted after the first successful
   notes only when `audio.keep_days = 0`.
@@ -38,14 +45,18 @@ User-facing docs: `README.md`. Ticket: `docs/tickets/meeting-notes-tool.md`.
 | `src/leus_notes/transcript.py` | Display names, merging consecutive lines, markdown/plain rendering |
 | `src/leus_notes/notes.py` | `claude -p` call (JSON output, `is_error` check), request and notes header |
 | `src/leus_notes/pipeline.py` | `process()`: transcribe → separate speakers → transcript → notes → audio cleanup; each step skipped when its output exists. `Engine` wraps the heavy parts so tests can fake them. |
+| `src/leus_notes/sharing.py` | `leus-notes share`: Google login (`InstalledAppFlow.run_local_server`, token refresh), Drive v3 REST through `AuthorizedSession` — find-or-create the `sharing.folder` folder by name, multipart upload of the notes as HTML converted to a Google Doc, `files.update` with new HTML to replace an existing Doc's content. Markdown → HTML with markdown-it-py (`html` off); the notes already carry `owner.name`, so nothing is rewritten at upload. `refresh()` updates only a live Doc; `share()` falls back to creating one. Google libraries are imported lazily so `install.py`/`doctor` stay stdlib-only at import time. |
 | `src/leus_notes/meeting.py` | Meeting folder + `meta.json`, folder naming, latest-meeting lookup, `audio.keep_days` sweep (runs before every command) |
-| `prompts/notes_system.md` | System prompt for the notes (`{notes_language}`, `{me_label}` placeholders) |
+| `prompts/notes_system.md` | System prompt for the notes (`{notes_language}`, `{owner}` placeholders — `owner.name` labels the recorder and tells Claude that mentions of that name mean the recorder) |
 
 ## Data model
 
 - Speaker ids in `segments.json`: `me`, `1…N`, or `them` (call audio that
   could not be separated). Names live in `meta.json` `names` (`{"1": "Marko"}`)
   and are applied only at render time, so renaming never needs the audio.
+- `meta.json` `google_doc_id` / `google_doc_url` link a meeting to its shared
+  Doc; `process()` returns whether notes were written, and `run_pipeline` then
+  refreshes that Doc.
 - `them-words.json` keeps word timings of the call audio so
   `--redo-speakers` only reruns pyannote, not Whisper.
 - `--number-of-people` includes the user; pyannote gets `N-1`

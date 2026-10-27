@@ -19,9 +19,9 @@ class NotesError(Exception):
     pass
 
 
-def system_prompt(prompts_dir: Path, notes_language: str, me_label: str) -> str:
+def system_prompt(prompts_dir: Path, notes_language: str, owner_name: str) -> str:
     template = (prompts_dir / SYSTEM_PROMPT_FILE).read_text()
-    return template.replace("{notes_language}", notes_language).replace("{me_label}", me_label)
+    return template.replace("{notes_language}", notes_language).replace("{owner}", owner_name)
 
 
 def claude_command(model: str, prompt: str) -> list[str]:

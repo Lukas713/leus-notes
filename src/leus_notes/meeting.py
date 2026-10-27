@@ -43,6 +43,8 @@ class Meeting:
     names: dict[str, str] = field(default_factory=dict)
     devices: dict[str, str] = field(default_factory=dict)
     keep_audio_reason: str | None = None
+    google_doc_id: str | None = None
+    google_doc_url: str | None = None
 
     @property
     def me_audio(self) -> Path:
@@ -91,6 +93,8 @@ class Meeting:
                 "names": self.names,
                 "devices": self.devices,
                 "keep_audio_reason": self.keep_audio_reason,
+                "google_doc_id": self.google_doc_id,
+                "google_doc_url": self.google_doc_url,
             },
         )
 
@@ -108,6 +112,8 @@ class Meeting:
             names=data.get("names", {}),
             devices=data.get("devices", {}),
             keep_audio_reason=data.get("keep_audio_reason"),
+            google_doc_id=data.get("google_doc_id"),
+            google_doc_url=data.get("google_doc_url"),
         )
 
     @classmethod

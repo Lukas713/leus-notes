@@ -65,7 +65,7 @@ def make_meeting(tmp_path, people="3", audio=True):
 def settings(tmp_path, keep_audio_days=0):
     root = tmp_path / "root"
     (root / "prompts").mkdir(parents=True, exist_ok=True)
-    (root / "prompts" / "notes_system.md").write_text("Notes in {notes_language}. {me_label} recorded.")
+    (root / "prompts" / "notes_system.md").write_text("Notes in {notes_language}. {owner} recorded.")
     return Settings(root=root, meetings_dir=tmp_path / "meetings", keep_audio_days=keep_audio_days)
 
 
@@ -83,11 +83,20 @@ def test_full_run_with_speaker_separation(tmp_path):
         ("1", "Friday is tight."),
         ("2", "I'll check stock."),
     ]
+    assert "[00:00:01] **Lukas:** Možemo li uzorke do petka?" in meeting.transcript_path.read_text()
     assert "[00:00:03] **Speaker 1:** Friday is tight." in meeting.transcript_path.read_text()
     assert meeting.notes_path.read_text().startswith("# Sample call\n")
     assert json.loads(meeting.words_path.read_text())["languages"] == ["en"]
     assert meeting.languages == {"me": ["hr"], "them": ["en"]}
     assert not meeting.has_audio()
+
+
+def test_process_reports_whether_notes_were_written(tmp_path):
+    meeting = make_meeting(tmp_path)
+    config = settings(tmp_path)
+    assert process(meeting, config, FakeEngine(), log=quiet)
+    assert not process(meeting, config, FakeEngine(), log=quiet)
+    assert process(meeting, config, FakeEngine(), rewrite_notes=True, log=quiet)
 
 
 def test_two_people_skip_speaker_separation(tmp_path):

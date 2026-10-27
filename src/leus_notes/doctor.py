@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from .config import Settings
 from .notes import BLOCKED_ENVIRONMENT_PREFIXES, SUBSCRIPTION_AUTH, auth_status
 from .recorder import RecordingError, default_devices
+from .sharing import CLIENT_FILE, SETUP_HINT, TOKEN_FILE
 
 
 @dataclass(frozen=True)
@@ -31,6 +32,7 @@ def run(settings: Settings, download_models: bool = False) -> int:
         lambda: whisper_check(settings, download_models),
         lambda: hf_token_check(settings),
         lambda: speaker_model_check(settings, download_models),
+        lambda: google_check(settings),
     ]
     passed = [report(check()) for check in checks]
     return 0 if all(passed) else 1
@@ -146,3 +148,12 @@ def access_check(settings: Settings) -> Check:
     except HfHubHTTPError as error:
         return Check(name, False, f"Hugging Face refused access: {error}", required=False)
     return Check(name, True, f"access to {settings.diarization_model} granted", required=False)
+
+
+def google_check(settings: Settings) -> Check:
+    name = "Google Docs sharing"
+    if not (settings.google_dir / CLIENT_FILE).exists():
+        return Check(name, False, f"not set up (optional). {SETUP_HINT}", required=False)
+    if not (settings.google_dir / TOKEN_FILE).exists():
+        return Check(name, False, "set up, not logged in yet — `leus-notes share` opens the Google login", required=False)
+    return Check(name, True, f"logged in · Docs go to the Drive folder '{settings.share_folder}'", required=False)

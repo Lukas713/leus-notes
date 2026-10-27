@@ -51,6 +51,8 @@ def test_save_and_load_round_trip(tmp_path):
     meeting.names = {"1": "Marko"}
     meeting.languages = {"me": ["hr"], "them": ["en", "hr"]}
     meeting.keep_audio_reason = "speaker separation failed"
+    meeting.google_doc_id = "doc123"
+    meeting.google_doc_url = "https://docs.google.com/document/d/doc123/edit"
     meeting.save()
     loaded = Meeting.load(meeting.folder)
     assert loaded == meeting

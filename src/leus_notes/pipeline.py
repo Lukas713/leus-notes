@@ -74,7 +74,7 @@ class Engine:
         return ask_claude(
             request,
             model=settings.claude_model,
-            prompt=system_prompt(settings.prompts_dir, settings.notes_language, settings.me_label),
+            prompt=system_prompt(settings.prompts_dir, settings.notes_language, settings.owner_name),
             cwd=settings.root,
             timeout=settings.claude_timeout_seconds,
         )
@@ -98,7 +98,7 @@ def process(
     redo_speakers: bool = False,
     rewrite_notes: bool = False,
     log: Log = log_to_stdout,
-) -> None:
+) -> bool:
     people = PeopleCount.parse(meeting.people)
     if redo_speakers:
         require_audio(meeting, settings)
@@ -110,9 +110,10 @@ def process(
     utterances = load_utterances(meeting.segments_path)
     if not utterances:
         raise PipelineError(NO_SPEECH)
-    lines = build_lines(utterances, meeting.names, settings.me_label)
+    lines = build_lines(utterances, meeting.names, settings.owner_name)
     meeting.transcript_path.write_text(render_markdown(meeting, lines))
-    if rewrite_notes or not meeting.notes_path.exists():
+    notes_written = rewrite_notes or not meeting.notes_path.exists()
+    if notes_written:
         log(f"Writing notes with Claude ({settings.claude_model})…")
         started = time.monotonic()
         body = engine.write_notes(notes_request(meeting, lines, people))
@@ -121,6 +122,7 @@ def process(
     if settings.keep_audio_days == 0 and meeting.has_audio() and not meeting.keep_audio_reason:
         meeting.delete_audio()
         log("Audio deleted (audio.keep_days = 0).")
+    return notes_written
 
 
 def require_audio(meeting: Meeting, settings: Settings) -> None:

@@ -6,7 +6,7 @@ from leus_notes.config import ConfigError, load_settings, read_env_file
 def test_defaults_without_config(tmp_path):
     settings = load_settings(tmp_path, environ={})
     assert settings.keep_audio_days == 0
-    assert settings.me_label == "Me"
+    assert settings.owner_name == "Lukas"
     assert settings.languages == ("en", "hr")
     assert settings.meetings_dir == tmp_path / "meetings"
     assert settings.hf_token is None
@@ -14,15 +14,23 @@ def test_defaults_without_config(tmp_path):
 
 def test_config_overrides(tmp_path):
     (tmp_path / "config.toml").write_text(
-        '[audio]\nkeep_days = 14\n[recording]\nauto_stop_silence_minutes = 5\nme_label = "Lukas"\n'
+        '[audio]\nkeep_days = 14\n[recording]\nauto_stop_silence_minutes = 5\n[owner]\nname = "Ana"\n'
         '[transcription]\nlanguages = ["hr"]\n[paths]\nmeetings_dir = "/srv/notes"\n'
     )
     settings = load_settings(tmp_path, environ={})
     assert settings.keep_audio_days == 14
     assert settings.auto_stop_silence_minutes == 5.0
-    assert settings.me_label == "Lukas"
+    assert settings.owner_name == "Ana"
     assert settings.languages == ("hr",)
     assert str(settings.meetings_dir) == "/srv/notes"
+
+
+def test_sharing_settings(tmp_path):
+    assert load_settings(tmp_path, environ={}).share_folder == "Meeting notes"
+    (tmp_path / "config.toml").write_text('[sharing]\nfolder = "Team notes"\n')
+    settings = load_settings(tmp_path, environ={})
+    assert settings.share_folder == "Team notes"
+    assert settings.google_dir == tmp_path / "google"
 
 
 def test_relative_meetings_dir_is_inside_project(tmp_path):

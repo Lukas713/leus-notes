@@ -18,7 +18,7 @@ class ConfigError(Exception):
 @dataclass(frozen=True)
 class Settings:
     root: Path = PROJECT_ROOT
-    me_label: str = "Me"
+    owner_name: str = "Lukas"
     call_outputs: str = "all"
     min_duration_seconds: int = 10
     auto_stop_silence_minutes: float = 0.0
@@ -33,6 +33,7 @@ class Settings:
     notes_language: str = "English"
     claude_timeout_seconds: int = 600
     meetings_dir: Path = PROJECT_ROOT / "meetings"
+    share_folder: str = "Meeting notes"
     hf_token: str | None = None
 
     @property
@@ -47,9 +48,13 @@ class Settings:
     def prompts_dir(self) -> Path:
         return self.root / "prompts"
 
+    @property
+    def google_dir(self) -> Path:
+        return self.root / "google"
+
 
 CONFIG_KEYS: dict[tuple[str, str], str] = {
-    ("recording", "me_label"): "me_label",
+    ("owner", "name"): "owner_name",
     ("recording", "outputs"): "call_outputs",
     ("recording", "min_duration_seconds"): "min_duration_seconds",
     ("recording", "auto_stop_silence_minutes"): "auto_stop_silence_minutes",
@@ -64,6 +69,7 @@ CONFIG_KEYS: dict[tuple[str, str], str] = {
     ("notes", "language"): "notes_language",
     ("notes", "timeout_seconds"): "claude_timeout_seconds",
     ("paths", "meetings_dir"): "meetings_dir",
+    ("sharing", "folder"): "share_folder",
 }
 
 CHOICES: dict[str, tuple[str, ...]] = {

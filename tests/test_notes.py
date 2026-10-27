@@ -53,6 +53,7 @@ def test_system_prompt_fills_placeholders():
     prompt = notes.system_prompt(PROJECT / "prompts", "English", "Lukas")
     assert "in English" in prompt
     assert '"Lukas" is the person who recorded' in prompt
+    assert "when other speakers mention Lukas, they mean this person" in prompt
     assert "{" not in prompt
 
 

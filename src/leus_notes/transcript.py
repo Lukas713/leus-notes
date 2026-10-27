@@ -17,19 +17,19 @@ class Line:
     text: str
 
 
-def display_name(speaker: str, names: dict[str, str], me_label: str) -> str:
+def display_name(speaker: str, names: dict[str, str], owner_name: str) -> str:
     if speaker == ME:
-        return me_label
+        return owner_name
     if speaker == THEM:
         return "Them"
     return names.get(speaker) or f"Speaker {speaker}"
 
 
-def build_lines(utterances: Iterable[Utterance], names: dict[str, str], me_label: str) -> list[Line]:
+def build_lines(utterances: Iterable[Utterance], names: dict[str, str], owner_name: str) -> list[Line]:
     lines: list[Line] = []
     previous_end = None
     for utterance in sorted(utterances, key=lambda utterance: utterance.start):
-        name = display_name(utterance.speaker, names, me_label)
+        name = display_name(utterance.speaker, names, owner_name)
         if lines and lines[-1].speaker == name and utterance.start - previous_end <= MERGE_GAP_SECONDS:
             lines[-1] = Line(lines[-1].start, name, f"{lines[-1].text} {utterance.text}")
         else:

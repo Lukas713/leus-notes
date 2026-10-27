@@ -1,5 +1,7 @@
+[owner]
+name = "Lukas"
+
 [recording]
-me_label = "Me"
 outputs = "all"
 min_duration_seconds = 10
 auto_stop_silence_minutes = 0
@@ -24,3 +26,6 @@ timeout_seconds = 600
 
 [paths]
 meetings_dir = "meetings"
+
+[sharing]
+folder = "Meeting notes"

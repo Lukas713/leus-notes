@@ -10,13 +10,14 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from . import control, doctor, recorder
+from . import control, doctor, recorder, sharing
 from .config import ConfigError, Settings, load_settings
 from .meeting import Meeting, MeetingNotFound, find_meeting, now, sweep_audio
 from .notes import NotesError
 from .people import PeopleCount, PeopleCountError
 from .pipeline import Engine, PipelineError, process
 from .recorder import RecordingError, RecordingResult, StopReason
+from .sharing import SharingError
 from .speakers import THEM, Utterance, load_utterances, speaker_ids
 from .transcript import format_duration, format_timestamp
 
@@ -60,6 +61,10 @@ def build_parser() -> argparse.ArgumentParser:
     names.add_argument("items", nargs="*", metavar="[meeting] [\"Speaker 1=Name\" ...]")
     names.set_defaults(handler=names_command)
 
+    share = commands.add_parser("share", help="upload a meeting's notes as a Google Doc, latest meeting by default")
+    share.add_argument("meeting", nargs="?", help="meeting folder or folder name")
+    share.set_defaults(handler=share_command)
+
     doctor_parser = commands.add_parser("doctor", help="check the setup")
     doctor_parser.add_argument("--download-models", action="store_true", help="download and test the models")
     doctor_parser.set_defaults(handler=doctor_command)
@@ -73,7 +78,7 @@ def main(argv: list[str] | None = None) -> int:
         for meeting in sweep_audio(settings.meetings_dir, settings.keep_audio_days, now()):
             print(f"Deleted old audio of {meeting.folder.name} (audio.keep_days = {settings.keep_audio_days}).")
         return args.handler(args, settings)
-    except (ConfigError, PeopleCountError, MeetingNotFound, RecordingError, UserError) as error:
+    except (ConfigError, PeopleCountError, MeetingNotFound, RecordingError, SharingError, UserError) as error:
         print(f"leus-notes: {error}", file=sys.stderr)
         return 1
     except KeyboardInterrupt:
@@ -228,6 +233,8 @@ def status_command(args: argparse.Namespace, settings: Settings) -> int:
     if meeting.has_audio():
         state += f", audio kept ({meeting.keep_audio_reason})" if meeting.keep_audio_reason else ", audio kept"
     print(f"Latest meeting: {meeting.folder.name} ({state})")
+    if meeting.google_doc_url:
+        print(f"  Google Doc: {meeting.google_doc_url}")
     return 0
 
 
@@ -325,7 +332,9 @@ def run_pipeline(
     notify_when_done: bool = True,
 ) -> int:
     try:
-        process(meeting, settings, Engine(settings), redo_speakers=redo_speakers, rewrite_notes=rewrite_notes)
+        notes_written = process(
+            meeting, settings, Engine(settings), redo_speakers=redo_speakers, rewrite_notes=rewrite_notes
+        )
     except KeyboardInterrupt:
         print(f"\nProcessing interrupted. Run `leus-notes process {meeting.folder.name}` to finish.")
         return 130
@@ -343,6 +352,35 @@ def run_pipeline(
         print(f"The audio is kept because {meeting.keep_audio_reason}.")
     if notify_when_done:
         notify("Meeting notes ready", f"{meeting.title}\n{meeting.notes_path}")
+    if notes_written and meeting.google_doc_id:
+        return refresh_google_doc(meeting, settings)
+    return 0
+
+
+def refresh_google_doc(meeting: Meeting, settings: Settings) -> int:
+    retry = f"Run `leus-notes share {meeting.folder.name}`"
+    try:
+        doc = sharing.refresh(meeting, sharing.connect(settings, interactive=False))
+    except SharingError as error:
+        print(f"leus-notes: the Google Doc was not updated: {error}", file=sys.stderr)
+        print(f"{retry} to try again.", file=sys.stderr)
+        return 1
+    if doc is None:
+        print(f"The Google Doc of this meeting was deleted or is in the trash. {retry} to create a new one.")
+        return 0
+    print(f"Google Doc: {doc.url} (updated)")
+    return 0
+
+
+def share_command(args: argparse.Namespace, settings: Settings) -> int:
+    meeting = pick_meeting(settings, args.meeting, transcribed=True)
+    if not meeting.notes_path.exists():
+        raise UserError(f"'{meeting.folder.name}' has no notes yet. Run `leus-notes process {meeting.folder.name}` first.")
+    shared = sharing.share(meeting, settings, sharing.connect(settings, interactive=True))
+    if shared.new_folder:
+        print(f"Created the Drive folder '{settings.share_folder}': {shared.new_folder.url}")
+        print("Share that folder with your team once in Google Drive; every Doc in it is then visible to them.")
+    print(f"{'Updated' if shared.updated else 'Created'} Google Doc for '{meeting.title}': {shared.doc.url}")
     return 0
 
 
